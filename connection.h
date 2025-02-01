@@ -24,7 +24,22 @@ public:
     {
         co_await m_socket.async_handshake(boost::asio::ssl::stream_base::server, boost::asio::use_awaitable);
         for(;;) {
-            auto len = co_await m_socket.async_read_some(boost::asio::buffer(m_buff), boost::asio::use_awaitable);
+            unsigned long len = 0;
+            try {
+                len = co_await m_socket.async_read_some(boost::asio::buffer(m_buff), boost::asio::use_awaitable);
+            }
+            catch (const boost::system::system_error & e)
+            {
+                if(e.code() == boost::asio::error::eof)
+                {
+                    break;
+                }
+                else
+                {
+                    std::cerr << "Error " << e.what() << std::endl;
+                    break;
+                }
+            }
             http::request_parser::result_type result;
             std::cout << "read form client\n" << std::string(m_buff, len) << std::endl;
             std::tie(result, std::ignore) = m_parser.parse(
