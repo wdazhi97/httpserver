@@ -8,20 +8,49 @@
 #include <boost/noncopyable.hpp>
 #include "connection.h"
 #include <boost/asio/ssl.hpp>
+#include <yaml-cpp/yaml.h>
 
 class httpserver : public boost::noncopyable {
 public:
     typedef std::shared_ptr<boost::asio::ip::tcp::socket> sock_ptr;
 
-    httpserver(std::string ip, unsigned port)
+    void Init(std::string ip, unsigned port, std::string passwd)
     {
         boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::make_address(ip), port);
         m_ssl_context.reset(new boost::asio::ssl::context(boost::asio::ssl::context::sslv23));
-        m_ssl_context->set_password_callback([](std::size_t size, boost::asio::ssl::context_base::password_purpose purpose)->std::string {return "test@123456";});
+        m_ssl_context->set_password_callback([&passwd](std::size_t size, boost::asio::ssl::context_base::password_purpose purpose)->std::string {return passwd;});
         m_ssl_context->use_certificate_chain_file("server.crt");
         m_ssl_context->use_private_key_file("server_private.pem", boost::asio::ssl::context::pem);
         m_context.reset(new boost::asio::io_context());
         m_acceptor.reset(new boost::asio::ip::tcp::acceptor(*m_context, endpoint));
+    }
+
+    httpserver(std::string config_path) : m_config(YAML::LoadFile(config_path))
+    {
+        if(!m_config)
+        {
+            std::cerr << "Open Config file failed" << std::endl;
+            exit(1);
+        }
+        if(!m_config["ip"])
+        {
+            std::cerr << "Can not find ip config" <<std::endl;
+            exit(1);
+        }
+
+        if(!m_config["port"])
+        {
+            std::cerr << "Can not find port config" << std::endl;
+            exit(1);
+        }
+
+        if(!m_config["passwd"])
+        {
+            std::cerr << "Can not find passwd config" << std::endl;
+            exit(1);
+        }
+
+        Init(m_config["ip"].as<std::string>(), m_config["port"].as<uint16_t>(), m_config["passwd"].as<std::string>());
     }
 
     boost::asio::awaitable<void> run()
@@ -53,6 +82,7 @@ private:
     std::unique_ptr<boost::asio::io_context> m_context;
     std::unique_ptr<boost::asio::ip::tcp::acceptor> m_acceptor;
     std::unique_ptr<boost::asio::ssl::context> m_ssl_context;
+    YAML::Node m_config;
 };
 
 

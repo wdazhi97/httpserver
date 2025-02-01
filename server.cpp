@@ -5,9 +5,14 @@
 #define SERVER_H
 #include <iostream>
 #include "httpserver.h"
-int main()
+int main(int argc, char* argv[])
 {
-    httpserver httpserver("127.0.0.1", 2001);
+    if(argc < 2)
+    {
+        std::cout << "Usage server config " << std::endl;
+        return 0;
+    }
+    httpserver httpserver(argv[1]);
     httpserver.start();
     return 0;
 };
