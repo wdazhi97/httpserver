@@ -109,7 +109,7 @@ namespace http {
                 {"jpg",  "image/jpeg"},
                 {"png",  "image/png"},
                 {"css", "text/css"},
-                {"js", "application/javascript; charset=utf-8"}};
+                {"js", "application/javascript"}};
 
         static std::string_view extension_to_type(std::string_view extension) {
             if (auto it = mime_map.find(extension); it != mime_map.end()) {
@@ -150,6 +150,21 @@ namespace http {
             buffers.push_back(boost::asio::buffer(misc_strings::crlf));
             buffers.push_back(boost::asio::buffer(content));
             return buffers;
+        }
+
+        std::string to_string() {
+            std::string response_string;
+            for(std::size_t i = 0; i < headers.size(); ++i)
+            {
+                header &h = headers[i];
+                response_string.append(h.name);
+                response_string.append(misc_strings::name_value_separator);
+                response_string.append(h.value);
+                response_string.append(misc_strings::crlf);
+            }
+            response_string.append(misc_strings::crlf);
+            response_string.append(content);
+            return response_string;
         }
     };
 

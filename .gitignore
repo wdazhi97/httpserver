@@ -1,2 +1,10 @@
 cmake-build-debug
 .idea
+third/openssl
+ca_private.key
+ca_req.csr
+ca_root.crt
+ca_root.srl
+server.crt
+server_req.csr
+server_private.pem

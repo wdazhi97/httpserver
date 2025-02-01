@@ -6,6 +6,7 @@
 #define HTTPSERVER_CONNECTION_H
 
 #include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
 #include <iostream>
 #include <fstream>
 #include "httprequest.hpp"
@@ -15,12 +16,13 @@ class connection : public std::enable_shared_from_this<connection>{
 
 public:
 
-    connection(boost::asio::ip::tcp::socket & socket) : m_socket(std::move(socket))
+    connection(boost::asio::ssl::stream<boost::asio::ip::tcp::socket> & socket) : m_socket(std::move(socket))
     {
     }
 
     boost::asio::awaitable<void> start()
     {
+        co_await m_socket.async_handshake(boost::asio::ssl::stream_base::server, boost::asio::use_awaitable);
         for(;;) {
             auto len = co_await m_socket.async_read_some(boost::asio::buffer(m_buff), boost::asio::use_awaitable);
             http::request_parser::result_type result;
@@ -29,7 +31,8 @@ public:
                     m_request, m_buff, m_buff + len);
             if (result == http::request_parser::good) {
                 handle_request(m_request, m_response);
-                co_await m_socket.async_write_some(m_response.to_buffers(), boost::asio::use_awaitable);
+                auto write_byte = co_await boost::asio::async_write(m_socket, m_response.to_buffers(), boost::asio::use_awaitable);
+                std::cout << "send to client\n" << m_response.to_string() << " " << write_byte << std::endl;
                 bool keep_alive = is_keep_alive();
                 if (!keep_alive) {
                     break;
@@ -80,6 +83,7 @@ public:
 
         // Open the file to send back.
         std::string full_path = m_doc_root + request_path;
+        std::cout << "request file path " << full_path << std::endl;
         std::ifstream is(full_path.c_str(), std::ios::in | std::ios::binary);
         if (!is) {
             rep = build_response(http::status_type::not_found);
@@ -138,7 +142,7 @@ private:
 
     char m_buff[1024 * 4];
     http::request_parser m_parser;
-    boost::asio::ip::tcp::socket m_socket;
+    boost::asio::ssl::stream<boost::asio::ip::tcp::socket> m_socket;
     http::request m_request;
     http::response m_response;
     std::string m_doc_root = ".";
